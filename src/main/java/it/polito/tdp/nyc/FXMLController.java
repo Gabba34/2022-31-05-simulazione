@@ -5,8 +5,16 @@
 package it.polito.tdp.nyc;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.ResourceBundle;
+
+import it.polito.tdp.nyc.model.Borough;
 import it.polito.tdp.nyc.model.Model;
+import it.polito.tdp.nyc.model.Neighbor;
+import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
@@ -15,6 +23,7 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
 
 public class FXMLController {
 	
@@ -39,7 +48,7 @@ public class FXMLController {
     private ComboBox<String> cmbProvider; // Value injected by FXMLLoader
 
     @FXML // fx:id="cmbQuartiere"
-    private ComboBox<?> cmbQuartiere; // Value injected by FXMLLoader
+    private ComboBox<Borough> cmbQuartiere; // Value injected by FXMLLoader
 
     @FXML // fx:id="txtMemoria"
     private TextField txtMemoria; // Value injected by FXMLLoader
@@ -48,27 +57,65 @@ public class FXMLController {
     private TextArea txtResult; // Value injected by FXMLLoader
     
     @FXML // fx:id="clQuartiere"
-    private TableColumn<?, ?> clQuartiere; // Value injected by FXMLLoader
+    private TableColumn<Neighbor, String > clQuartiere; // Value injected by FXMLLoader
  
     @FXML // fx:id="clDistanza"
-    private TableColumn<?, ?> clDistanza; // Value injected by FXMLLoader
+    private TableColumn<Neighbor, Double> clDistanza; // Value injected by FXMLLoader
     
     @FXML // fx:id="tblQuartieri"
-    private TableView<?> tblQuartieri; // Value injected by FXMLLoader
+    private TableView<Neighbor> tblQuartieri; // Value injected by FXMLLoader
 
     @FXML
     void doCreaGrafo(ActionEvent event) {
-    	
+    	cmbQuartiere.getItems().clear();
+    	tblQuartieri.getItems().clear();
+    	String provider = cmbProvider.getValue();
+    	if(provider!=null) {
+    		List<Borough> boroughs = new ArrayList<>(model.getBoroughs(provider));
+    		Collections.sort(boroughs, new Comparator<Borough>() {
+    			@Override
+    			public int compare(Borough o1, Borough o2) {
+    				return o1.getBoroName().compareTo(o2.getBoroName());
+    			}
+    		});
+    		cmbQuartiere.getItems().addAll(boroughs);
+    		txtResult.setText(model.createGraph());
+    	} else {
+    		txtResult.setText("Seleziona un provider!");
+    		return;
+    	}
     }
 
     @FXML
     void doQuartieriAdiacenti(ActionEvent event) {
-    	
+    	Borough borough = cmbQuartiere.getValue();
+    	if(borough!=null) {
+    		txtResult.clear();
+    		List<Neighbor> neighbors = model.getNeighbor(borough);
+    		tblQuartieri.setItems(FXCollections.observableArrayList(neighbors));
+    	} else {
+    		txtResult.setText("Seleziona un quartiere!");
+    		return;
+    	}
     }
 
     @FXML
     void doSimula(ActionEvent event) {
-
+    	Borough b = cmbQuartiere.getValue();
+    	if(b==null) {
+    		txtResult.setText("Seleziona un quartiere!");
+    		return;
+    	}
+    	int N=0;
+    	try {
+			N=Integer.parseInt(txtMemoria.getText());
+		} catch (NumberFormatException e) {
+			txtResult.appendText("Errore: inserire un numero valido\n");
+    		return;
+    	}
+    	model.simulation(b, N);
+    	txtResult.appendText("Durata simulazione: "+model.getDuration()+" minuti\n");
+    	txtResult.appendText("Impegni dei tecnici: "+model.getRevisioned()+"\n");
     }
 
     @FXML // This method is called by the FXMLLoader when initialization is complete
@@ -82,11 +129,15 @@ public class FXMLController {
         assert txtResult != null : "fx:id=\"txtResult\" was not injected: check your FXML file 'Scene.fxml'.";
         assert clDistanza != null : "fx:id=\"clDistanza\" was not injected: check your FXML file 'Scene.fxml'.";
         assert clQuartiere != null : "fx:id=\"clQuartiere\" was not injected: check your FXML file 'Scene.fxml'.";
-
+        clQuartiere.setCellValueFactory(new PropertyValueFactory<Neighbor, String>("name"));
+		clDistanza.setCellValueFactory(new PropertyValueFactory<Neighbor, Double>("distance"));
     }
     
     public void setModel(Model model) {
     	this.model = model;
+    	List<String> providers = new ArrayList<>(model.getProviders());
+    	Collections.sort(providers);
+    	cmbProvider.getItems().addAll(providers);
     }
 
 }
